@@ -13,10 +13,13 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://localhost:3000",
+      "https://chitchatfevite-production.up.railway.app",
       process.env.FRONTEND_URL,
       process.env.RAILWAY_STATIC_URL,
     ].filter(Boolean),
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   },
 });
 

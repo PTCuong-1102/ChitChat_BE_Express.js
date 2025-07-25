@@ -31,6 +31,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+  "https://chitchatfevite-production.up.railway.app",
   process.env.FRONTEND_URL,
   // Chỉ allow specific Railway URL thay vì wildcard
   process.env.RAILWAY_STATIC_URL
