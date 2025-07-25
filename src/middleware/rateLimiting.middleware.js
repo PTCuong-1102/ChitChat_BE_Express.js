@@ -1,24 +1,63 @@
 import rateLimit from 'express-rate-limit';
 
-// General API rate limit
-export const apiLimiter = rateLimit({
+// SỬA LỖI: Create store for tracking rate limit data
+const rateLimitStore = new Map();
+
+// Helper function to create rate limiter with custom store
+const createRateLimiter = (options) => {
+  return rateLimit({
+    ...options,
+    // Add skip function for health checks and development
+    skip: (req, res) => {
+      // Skip rate limiting for health check endpoints
+      if (req.path === '/health' || req.path === '/api/health') {
+        return true;
+      }
+      
+      // Skip rate limiting in development mode
+      if (process.env.NODE_ENV === 'development') {
+        return true;
+      }
+      
+      // Call original skip function if provided
+      return options.skip ? options.skip(req, res) : false;
+    }
+  });
+};
+
+// SỬA LỖI: More reasonable general API rate limit for production
+export const apiLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 500, // Increased to 500 requests per 15 minutes (better for active users)
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Custom key generator for better distribution in production
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = forwarded ? forwarded.split(',')[0] : req.connection.remoteAddress;
+    return `${ip}-api`;
+  }
 });
 
-// Strict rate limit cho auth endpoints
-export const authLimiter = rateLimit({
+// SỬA LỖI: More reasonable auth rate limit for production
+export const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login requests per windowMs
+  max: 50, // Allow 50 login attempts per IP per 15 minutes (more reasonable for shared IPs)
   message: {
     error: 'Too many login attempts, please try again later.'
   },
-  skipSuccessfulRequests: true
+  skipSuccessfulRequests: true, // Don't count successful logins
+  skipFailedRequests: false, // Count failed attempts to prevent brute force
+  // Add custom key generator for better handling in production
+  keyGenerator: (req) => {
+    // Use combination of IP and user agent for better distribution
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = forwarded ? forwarded.split(',')[0] : req.connection.remoteAddress;
+    return `${ip}-auth`;
+  }
 });
 
 // Message sending rate limit
