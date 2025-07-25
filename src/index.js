@@ -17,35 +17,45 @@ import conversationRoutes from "./routes/conversation.route.js";
 import friendRoutes from "./routes/friend.route.js";
 import { app, server } from "./lib/socket.js";
 
+// Import middleware
+import { apiLimiter, authLimiter, messageLimiter } from './middleware/rateLimiting.middleware.js';
+import { sanitizeInput, validateObjectId } from './middleware/sanitization.middleware.js';
+import { errorHandler, notFound } from './middleware/errorHandler.middleware.js';
+
 const PORT = process.env.PORT || 5002;
 const __dirname = path.resolve();
 
 app.use(express.json());
 app.use(cookieParser());
-// CORS configuration for Railway deployment
+// SỬA LỖI: Siết chặt CORS configuration
 const allowedOrigins = [
-  "http://localhost:5173", // Local development
-  "http://localhost:3000", // Alternative local port
-  process.env.FRONTEND_URL, // Railway frontend URL
-  process.env.RAILWAY_STATIC_URL, // Railway static URL
-].filter(Boolean); // Remove undefined values
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+  // Chỉ allow specific Railway URL thay vì wildcard
+  process.env.RAILWAY_STATIC_URL
+].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, etc.)
+      // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
       
-      // Check if origin is in allowed list or matches Railway pattern
-      if (allowedOrigins.includes(origin) || 
-          origin.includes('.railway.app') || 
-          origin.includes('.up.railway.app')) {
+      // Kiểm tra exact match thay vì pattern matching
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       
-      return callback(new Error('Not allowed by CORS'));
+      // Log unauthorized attempts
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      return callback(new Error('Not allowed by CORS policy'));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Thêm security headers
+    optionsSuccessStatus: 200
   })
 );
 
@@ -60,8 +70,12 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/messages", messageRoutes);
+// Apply middleware
+app.use('/api/', apiLimiter);
+app.use(sanitizeInput);
+
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/messages", messageLimiter, messageRoutes);
 app.use("/api/chatbots", chatbotRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/friends", friendRoutes);
@@ -74,8 +88,18 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// Error handling middleware (must be last)
+app.use(notFound);
+app.use(errorHandler);
+
 server.listen(PORT, async () => {
   console.log("server is running on PORT:" + PORT);
-  await connectDB();
-  await createDefaultChatbot();
+  try {
+    await connectDB();
+    console.log("Database connected successfully");
+    await createDefaultChatbot();
+    console.log("Default chatbot created successfully");
+  } catch (error) {
+    console.error("Startup error:", error);
+  }
 });
