@@ -3,6 +3,7 @@ import http from "http";
 import express from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import UserEnhanced from "../models/user_enhanced.model.js";
 import Conversation from "../models/conversation.model.js";
 
 const app = express();
@@ -34,8 +35,13 @@ io.use(async (socket, next) => {
         // Verify JWT token if provided
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Validate user exists
-        const user = await User.findById(decoded.userId).select("-password");
+        // Try both User models to find user
+        let user = await User.findById(decoded.userId).select("-password");
+        
+        if (!user) {
+          user = await UserEnhanced.findById(decoded.userId).select("-password");
+        }
+        
         if (user) {
           // Attach user to socket
           socket.userId = user._id.toString();
@@ -48,7 +54,13 @@ io.use(async (socket, next) => {
         // Fallback to userId from query if JWT fails
         if (userId && userId !== "undefined" && userId !== "null") {
           try {
-            const user = await User.findById(userId).select("-password");
+            // Try both User models to find user
+            let user = await User.findById(userId).select("-password");
+            
+            if (!user) {
+              user = await UserEnhanced.findById(userId).select("-password");
+            }
+            
             if (user) {
               socket.userId = user._id.toString();
               socket.user = user;
@@ -62,7 +74,13 @@ io.use(async (socket, next) => {
     } else if (userId && userId !== "undefined" && userId !== "null") {
       // No token, but userId provided - allow for backward compatibility
       try {
-        const user = await User.findById(userId).select("-password");
+        // Try both User models to find user
+        let user = await User.findById(userId).select("-password");
+        
+        if (!user) {
+          user = await UserEnhanced.findById(userId).select("-password");
+        }
+        
         if (user) {
           socket.userId = user._id.toString();
           socket.user = user;

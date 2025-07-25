@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import UserEnhanced from "../models/user_enhanced.model.js";
 
 export const protectRoute = async (req, res, next) => {
   try {
@@ -17,8 +18,13 @@ export const protectRoute = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("protectRoute - Token decoded for user:", decoded.userId);
     
-    // Kiểm tra thêm: Token có còn hợp lệ trong database không
-    const user = await User.findById(decoded.userId).select("-password");
+    // Try both User models to support old and new accounts
+    let user = await User.findById(decoded.userId).select("-password");
+    
+    if (!user) {
+      user = await UserEnhanced.findById(decoded.userId).select("-password");
+    }
+    
     console.log("protectRoute - User found:", !!user);
     
     if (!user) {
@@ -58,7 +64,13 @@ export const refreshToken = async (req, res) => {
     }
 
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    const user = await User.findById(decoded.userId);
+    
+    // Try both User models to support old and new accounts
+    let user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      user = await UserEnhanced.findById(decoded.userId);
+    }
     
     if (!user || user.refreshToken !== refreshToken) {
       return res.status(401).json({ message: "Invalid refresh token" });

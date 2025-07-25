@@ -1,5 +1,6 @@
 import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
+import UserEnhanced from "../models/user_enhanced.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 
@@ -71,8 +72,17 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid data format" });
     }
 
-    const user = await User.findOne({ email });
+    // Try both User models to support old and new accounts
+    let user = await User.findOne({ email });
+    let isEnhancedUser = false;
+    
+    if (!user) {
+      user = await UserEnhanced.findOne({ email });
+      isEnhancedUser = true;
+    }
+    
     console.log("User found:", user ? "Yes" : "No");
+    console.log("Enhanced user:", isEnhancedUser);
 
     if (!user) {
       console.log("User not found for email:", email);
