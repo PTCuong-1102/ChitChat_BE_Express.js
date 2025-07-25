@@ -17,6 +17,15 @@ import conversationRoutes from "./routes/conversation.route.js";
 import friendRoutes from "./routes/friend.route.js";
 import { app, server } from "./lib/socket.js";
 
+// SỬA LỖI: Debug route imports
+console.log("Route imports:", {
+  authRoutes: typeof authRoutes,
+  messageRoutes: typeof messageRoutes,
+  chatbotRoutes: typeof chatbotRoutes,
+  conversationRoutes: typeof conversationRoutes,
+  friendRoutes: typeof friendRoutes
+});
+
 // Import middleware
 import { apiLimiter, authLimiter, messageLimiter } from './middleware/rateLimiting.middleware.js';
 import { sanitizeInput, validateObjectId } from './middleware/sanitization.middleware.js';
@@ -225,10 +234,6 @@ app.post("/api/dev/test-login", async (req, res) => {
   }
 });
 
-// Apply middleware
-app.use('/api/', apiLimiter);
-app.use(sanitizeInput);
-
 // SỬA LỖI: Add debugging route to catch requests to root
 app.get("/", (req, res) => {
   console.log("Request to root path:", {
@@ -251,9 +256,26 @@ app.get("/", (req, res) => {
   });
 });
 
-// SỬA LỖI: Temporarily remove auth rate limiting for immediate testing
+// Apply middleware
+app.use(sanitizeInput);
+
+// SỬA LỖI: Apply rate limiter to all API routes, not just /api/
+app.use('/api', apiLimiter);
+
+// SỬA LỖI: Add test route to verify routing works
+app.get("/api/test", (req, res) => {
+  res.status(200).json({
+    message: "API routes are working!",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// SỬA LỖI: Register routes AFTER middleware
+console.log("Registering auth routes...");
 // app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/auth", authRoutes); // Temporarily disabled rate limiting
+
+console.log("Registering other routes...");
 app.use("/api/messages", messageLimiter, messageRoutes);
 app.use("/api/chatbots", chatbotRoutes);
 app.use("/api/conversations", conversationRoutes);
