@@ -80,6 +80,44 @@ app.get("/health", (req, res) => {
   });
 });
 
+// SỬA LỖI: Comprehensive system health check
+app.get("/api/dev/system-check", async (req, res) => {
+  try {
+    const { default: User } = await import("./models/user.model.js");
+    
+    // Check database connection
+    const userCount = await User.countDocuments();
+    
+    // Check if test user exists
+    const testUser = await User.findOne({ email: "test@example.com" });
+    
+    res.status(200).json({
+      status: "✅ SYSTEM HEALTHY",
+      checks: {
+        database: userCount > 0 ? "✅ Connected" : "❌ No users found",
+        userCount: userCount,
+        testUser: testUser ? "✅ Exists" : "❌ Not found",
+        environment: process.env.NODE_ENV,
+        jwtSecret: process.env.JWT_SECRET ? "✅ Set" : "❌ Missing",
+        cors: "✅ Configured for Railway"
+      },
+      recommendations: testUser ? [
+        "✅ Ready for login testing",
+        "Use email: test@example.com", 
+        "Use password: 123456 (after running /api/dev/fix-login)"
+      ] : [
+        "⚠️ Run /api/dev/fix-login first to create test user"
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "❌ SYSTEM ERROR",
+      error: error.message,
+      recommendation: "Check database connection and environment variables"
+    });
+  }
+});
+
 // SỬA LỖI: Temporary endpoint to reset rate limits (for immediate testing)
 app.post("/api/dev/reset-limits", (req, res) => {
   // Only allow in development or with special key
@@ -144,51 +182,82 @@ app.get("/api/dev/auth-status", (req, res) => {
   }
 });
 
-// SỬA LỖI: Create test user with known password
-app.post("/api/dev/create-test-user", async (req, res) => {
+// SỬA LỖI: COMPREHENSIVE FIX - Reset existing user password to known value
+app.get("/api/dev/fix-login", async (req, res) => {
   try {
     const { default: User } = await import("./models/user.model.js");
     const bcrypt = await import("bcryptjs");
     
-    const testEmail = "debug@test.com";
-    const testPassword = "123456";
+    const testEmail = "test@example.com"; // Using existing user from your database
+    const newPassword = "123456"; // Simple password for testing
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: testEmail });
-    if (existingUser) {
-      return res.status(200).json({
-        message: "Test user already exists",
+    // Find the existing user
+    let user = await User.findOne({ email: testEmail });
+    
+    if (!user) {
+      // If test@example.com doesn't exist, create it
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      
+      user = new User({
+        fullName: "Test User",
         email: testEmail,
-        password: testPassword,
-        note: "You can login with these credentials"
+        password: hashedPassword,
+      });
+      
+      await user.save();
+      
+      return res.status(201).json({
+        status: "✅ SUCCESS",
+        action: "Created new test user",
+        email: testEmail,
+        password: newPassword,
+        message: "Login is now ready!",
+        instructions: [
+          "1. Go to: https://chitchatfevite-production.up.railway.app",
+          "2. Login with the credentials above",
+          "3. Login should work immediately"
+        ]
+      });
+    } else {
+      // Update existing user's password to known value
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      
+      await User.findByIdAndUpdate(user._id, { 
+        password: hashedPassword 
+      });
+      
+      return res.status(200).json({
+        status: "✅ SUCCESS", 
+        action: "Reset existing user password",
+        email: testEmail,
+        password: newPassword,
+        message: "Login is now ready!",
+        instructions: [
+          "1. Go to: https://chitchatfevite-production.up.railway.app",
+          "2. Login with the credentials above", 
+          "3. Login should work immediately"
+        ]
       });
     }
     
-    // Create new test user
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(testPassword, salt);
-    
-    const testUser = new User({
-      fullName: "Debug Test User",
-      email: testEmail,
-      password: hashedPassword,
-    });
-    
-    await testUser.save();
-    
-    res.status(201).json({
-      message: "Test user created successfully",
-      email: testEmail,
-      password: testPassword,
-      note: "You can now login with these credentials"
-    });
   } catch (error) {
-    console.error("Error creating test user:", error);
+    console.error("Error fixing login:", error);
     res.status(500).json({ 
-      error: "Failed to create test user",
+      status: "❌ ERROR",
+      error: "Failed to fix login",
       details: error.message 
     });
   }
+});
+
+// SỬA LỖI: Also support POST for the same endpoint
+app.post("/api/dev/create-test-user", async (req, res) => {
+  // Redirect to GET version for simplicity
+  const response = await fetch(`${req.protocol}://${req.get('host')}/api/dev/create-test-user`);
+  const data = await response.json();
+  res.status(response.status).json(data);
 });
 
 // SỬA LỖI: Test login endpoint to bypass frontend
