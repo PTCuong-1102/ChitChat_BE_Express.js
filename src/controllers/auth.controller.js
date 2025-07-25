@@ -50,17 +50,32 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
+    // SỬA LỖI: Add logging for debugging
+    console.log("Login attempt for email:", email);
+    
+    if (!email || !password) {
+      console.log("Missing email or password");
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const user = await User.findOne({ email });
+    console.log("User found:", user ? "Yes" : "No");
 
     if (!user) {
+      console.log("User not found for email:", email);
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    console.log("Attempting password comparison");
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    console.log("Password correct:", isPasswordCorrect);
+    
     if (!isPasswordCorrect) {
+      console.log("Password incorrect for user:", email);
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    console.log("Login successful for user:", email);
     generateToken(user._id, res);
 
     res.status(200).json({
@@ -77,7 +92,16 @@ export const login = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.cookie("jwt", "", { maxAge: 0 });
+    // SỬA LỖI: Properly clear cookie with same settings as when it was set
+    res.cookie("jwt", "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      secure: process.env.NODE_ENV === "production",
+      domain: process.env.NODE_ENV === "production" ? undefined : undefined,
+    });
+    
+    console.log("User logged out successfully in environment:", process.env.NODE_ENV);
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.log("Error in logout controller", error.message);

@@ -85,6 +85,56 @@ app.post("/api/dev/reset-limits", (req, res) => {
   }
 });
 
+// SỬA LỖI: Debug endpoint to check users in database
+app.get("/api/dev/users", async (req, res) => {
+  try {
+    // Import User model dynamically
+    const { default: User } = await import("./models/user.model.js");
+    
+    const userCount = await User.countDocuments();
+    const users = await User.find({}, { email: 1, fullName: 1, createdAt: 1 }).limit(10);
+    
+    res.status(200).json({
+      message: "Database connection successful",
+      userCount,
+      sampleUsers: users.map(user => ({
+        email: user.email,
+        fullName: user.fullName,
+        createdAt: user.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error("Database debug error:", error);
+    res.status(500).json({ 
+      error: "Database connection failed",
+      details: error.message 
+    });
+  }
+});
+
+// SỬA LỖI: Debug endpoint to check current authentication status
+app.get("/api/dev/auth-status", (req, res) => {
+  try {
+    const token = req.cookies.jwt;
+    const allCookies = req.cookies;
+    
+    res.status(200).json({
+      message: "Auth status check",
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      allCookies: Object.keys(allCookies),
+      userAgent: req.headers['user-agent'],
+      origin: req.headers.origin,
+      environment: process.env.NODE_ENV
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: "Auth status check failed",
+      details: error.message 
+    });
+  }
+});
+
 // Apply middleware
 app.use('/api/', apiLimiter);
 app.use(sanitizeInput);

@@ -4,28 +4,39 @@ import User from "../models/user.model.js";
 export const protectRoute = async (req, res, next) => {
   try {
     const token = req.cookies.jwt;
+    console.log("protectRoute - Token present:", !!token);
+    console.log("protectRoute - All cookies:", Object.keys(req.cookies));
 
     if (!token) {
+      console.log("protectRoute - No token provided");
       return res.status(401).json({ message: "Unauthorized - No Token Provided" });
     }
 
     // SỬA LỖI: Kiểm tra token expiry và validation đầy đủ
+    console.log("protectRoute - Verifying token");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("protectRoute - Token decoded for user:", decoded.userId);
     
     // Kiểm tra thêm: Token có còn hợp lệ trong database không
     const user = await User.findById(decoded.userId).select("-password");
+    console.log("protectRoute - User found:", !!user);
+    
     if (!user) {
+      console.log("protectRoute - User not found for ID:", decoded.userId);
       return res.status(404).json({ message: "User not found - Token invalid" });
     }
 
     // Kiểm tra token blacklist (nếu có)
     if (user.tokenBlacklist && user.tokenBlacklist.includes(token)) {
+      console.log("protectRoute - Token is blacklisted");
       return res.status(401).json({ message: "Unauthorized - Token revoked" });
     }
 
+    console.log("protectRoute - Success for user:", user.email);
     req.user = user;
     next();
   } catch (error) {
+    console.log("protectRoute - Error:", error.name, error.message);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: "Unauthorized - Token Expired" });
     }
