@@ -135,6 +135,96 @@ app.get("/api/dev/auth-status", (req, res) => {
   }
 });
 
+// SỬA LỖI: Create test user with known password
+app.post("/api/dev/create-test-user", async (req, res) => {
+  try {
+    const { default: User } = await import("./models/user.model.js");
+    const bcrypt = await import("bcryptjs");
+    
+    const testEmail = "debug@test.com";
+    const testPassword = "123456";
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: testEmail });
+    if (existingUser) {
+      return res.status(200).json({
+        message: "Test user already exists",
+        email: testEmail,
+        password: testPassword,
+        note: "You can login with these credentials"
+      });
+    }
+    
+    // Create new test user
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(testPassword, salt);
+    
+    const testUser = new User({
+      fullName: "Debug Test User",
+      email: testEmail,
+      password: hashedPassword,
+    });
+    
+    await testUser.save();
+    
+    res.status(201).json({
+      message: "Test user created successfully",
+      email: testEmail,
+      password: testPassword,
+      note: "You can now login with these credentials"
+    });
+  } catch (error) {
+    console.error("Error creating test user:", error);
+    res.status(500).json({ 
+      error: "Failed to create test user",
+      details: error.message 
+    });
+  }
+});
+
+// SỬA LỖI: Test login endpoint to bypass frontend
+app.post("/api/dev/test-login", async (req, res) => {
+  try {
+    const { default: User } = await import("./models/user.model.js");
+    const bcrypt = await import("bcryptjs");
+    
+    // Use one of the existing users from database
+    const testEmail = "test@example.com"; // From your user list
+    const testPassword = "123456"; // Try common password
+    
+    console.log("=== BACKEND TEST LOGIN ===");
+    console.log("Testing with email:", testEmail);
+    
+    const user = await User.findOne({ email: testEmail });
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        availableUsers: ["Test1@gmail.com", "pt.cuong.1102@gmail.com", "test@example.com"]
+      });
+    }
+    
+    // Try the password
+    const isPasswordCorrect = await bcrypt.compare(testPassword, user.password);
+    
+    res.status(200).json({
+      message: "Backend login test completed",
+      userFound: true,
+      passwordTest: isPasswordCorrect,
+      userEmail: user.email,
+      userFullName: user.fullName,
+      passwordUsed: testPassword,
+      note: isPasswordCorrect ? "Login would succeed" : "Password is incorrect"
+    });
+    
+  } catch (error) {
+    console.error("Error in test login:", error);
+    res.status(500).json({ 
+      error: "Backend test failed",
+      details: error.message 
+    });
+  }
+});
+
 // Apply middleware
 app.use('/api/', apiLimiter);
 app.use(sanitizeInput);

@@ -50,12 +50,25 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    // SỬA LỖI: Add logging for debugging
-    console.log("Login attempt for email:", email);
+    // SỬA LỖI: Add comprehensive logging for debugging
+    console.log("=== LOGIN REQUEST RECEIVED ===");
+    console.log("Full request body:", req.body);
+    console.log("Email from body:", email);
+    console.log("Password from body:", password ? `[${password.length} characters]` : "undefined");
+    console.log("Request headers:", {
+      'content-type': req.headers['content-type'],
+      'origin': req.headers.origin,
+      'user-agent': req.headers['user-agent']
+    });
     
     if (!email || !password) {
-      console.log("Missing email or password");
+      console.log("❌ Missing email or password in request");
       return res.status(400).json({ message: "Email and password are required" });
+    }
+    
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      console.log("❌ Email or password is not a string");
+      return res.status(400).json({ message: "Invalid data format" });
     }
 
     const user = await User.findOne({ email });
