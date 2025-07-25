@@ -139,6 +139,28 @@ app.get("/api/dev/auth-status", (req, res) => {
 app.use('/api/', apiLimiter);
 app.use(sanitizeInput);
 
+// SỬA LỖI: Add debugging route to catch requests to root
+app.get("/", (req, res) => {
+  console.log("Request to root path:", {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    userAgent: req.headers['user-agent'],
+    origin: req.headers.origin
+  });
+  res.status(200).json({
+    message: "ChitChat Backend API",
+    version: "1.0.0",
+    endpoints: {
+      auth: "/api/auth",
+      messages: "/api/messages",
+      chatbots: "/api/chatbots",
+      conversations: "/api/conversations",
+      friends: "/api/friends"
+    }
+  });
+});
+
 // SỬA LỖI: Temporarily remove auth rate limiting for immediate testing
 // app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/auth", authRoutes); // Temporarily disabled rate limiting
