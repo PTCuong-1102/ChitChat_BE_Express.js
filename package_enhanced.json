@@ -1,0 +1,33 @@
+{
+  "name": "chitchat-backend-enhanced",
+  "version": "2.0.0",
+  "description": "Enhanced Backend API for ChitChat AI-Powered Chat Application with Realtime Features",
+  "main": "src/index_enhanced.js",
+  "scripts": {
+    "dev": "nodemon src/index_enhanced.js",
+    "start": "node src/index_enhanced.js",
+    "dev-original": "nodemon src/index.js",
+    "start-original": "node src/index.js"
+  },
+  "keywords": ["chat", "realtime", "socket.io", "enhanced"],
+  "author": "Manus AI",
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.10.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
+
