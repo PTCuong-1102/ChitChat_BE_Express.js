@@ -186,16 +186,23 @@ app.get("/api/dev/auth-status", (req, res) => {
 app.get("/api/dev/fix-login", async (req, res) => {
   try {
     const { default: User } = await import("./models/user.model.js");
-    const bcrypt = await import("bcryptjs");
+    // SỬA LỖI: Import bcrypt correctly as default export
+    const bcrypt = (await import("bcryptjs")).default;
     
     const testEmail = "test@example.com"; // Using existing user from your database
     const newPassword = "123456"; // Simple password for testing
     
+    console.log("Starting login fix process...");
+    console.log("bcrypt imported:", typeof bcrypt);
+    console.log("bcrypt.genSalt:", typeof bcrypt.genSalt);
+    
     // Find the existing user
     let user = await User.findOne({ email: testEmail });
+    console.log("User found:", !!user);
     
     if (!user) {
       // If test@example.com doesn't exist, create it
+      console.log("Creating new user...");
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
       
@@ -206,6 +213,7 @@ app.get("/api/dev/fix-login", async (req, res) => {
       });
       
       await user.save();
+      console.log("New user created successfully");
       
       return res.status(201).json({
         status: "✅ SUCCESS",
@@ -221,12 +229,15 @@ app.get("/api/dev/fix-login", async (req, res) => {
       });
     } else {
       // Update existing user's password to known value
+      console.log("Updating existing user password...");
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
       
       await User.findByIdAndUpdate(user._id, { 
         password: hashedPassword 
       });
+      
+      console.log("User password updated successfully");
       
       return res.status(200).json({
         status: "✅ SUCCESS", 
@@ -247,17 +258,78 @@ app.get("/api/dev/fix-login", async (req, res) => {
     res.status(500).json({ 
       status: "❌ ERROR",
       error: "Failed to fix login",
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     });
   }
 });
 
-// SỬA LỖI: Also support POST for the same endpoint
-app.post("/api/dev/create-test-user", async (req, res) => {
-  // Redirect to GET version for simplicity
-  const response = await fetch(`${req.protocol}://${req.get('host')}/api/dev/create-test-user`);
-  const data = await response.json();
-  res.status(response.status).json(data);
+// SỬA LỖI: Alternative simple fix using existing auth controller
+app.get("/api/dev/simple-fix", async (req, res) => {
+  try {
+    const { signup } = await import("./controllers/auth.controller.js");
+    
+    // Create a mock request/response to use existing signup function
+    const mockReq = {
+      body: {
+        fullName: "Test User",
+        email: "testuser@demo.com",
+        password: "123456"
+      }
+    };
+    
+    const mockRes = {
+      status: function(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json: function(data) {
+        this.data = data;
+        return this;
+      },
+      cookie: function() {
+        return this;
+      }
+    };
+    
+    await signup(mockReq, mockRes);
+    
+    if (mockRes.statusCode === 201) {
+      res.status(200).json({
+        status: "✅ SUCCESS",
+        message: "Test user created successfully!",
+        email: "testuser@demo.com",
+        password: "123456",
+        instructions: [
+          "1. Go to: https://chitchatfevite-production.up.railway.app",
+          "2. Login with email: testuser@demo.com",
+          "3. Login with password: 123456"
+        ],
+        note: "This uses the same signup logic as the frontend"
+      });
+    } else {
+      res.status(400).json({
+        status: "⚠️ USER EXISTS",
+        message: "Test user already exists",
+        email: "testuser@demo.com", 
+        password: "123456",
+        instructions: [
+          "1. Go to: https://chitchatfevite-production.up.railway.app",
+          "2. Try logging in with the credentials above",
+          "3. If it doesn't work, the user exists with a different password"
+        ]
+      });
+    }
+    
+  } catch (error) {
+    console.error("Simple fix error:", error);
+    res.status(500).json({
+      status: "❌ ERROR",
+      error: "Simple fix failed",
+      details: error.message,
+      fallback: "Try using the signup page instead: https://chitchatfevite-production.up.railway.app/signup"
+    });
+  }
 });
 
 // SỬA LỖI: Test login endpoint to bypass frontend
